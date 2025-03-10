@@ -1,56 +1,56 @@
-// Short-URL/index.js
+require("dotenv").config(); // Load environment variables
 const express = require("express");
 const path = require("path");
 const cookieParser = require("cookie-parser");
 const { connectToMongoDB } = require("./connect");
 const { restrictToLoggedinUserOnly, checkAuth } = require("./middleware/auth");
-
 const URL = require("./models/url");
 
-//Register the routes
+// Register the routes
 const urlRoute = require("./routes/url");
 const staticRoute = require("./routes/staticRouter");
 const userRoute = require("./routes/user");
 
 const app = express();
-const PORT = 8001;
+const PORT = process.env.PORT || 8001;
+const MONGO_URI = process.env.MONGO_URI;
 
-//Connection
-connectToMongoDB("mongodb://127.0.0.1:27017/short-url").then(() =>
+// Connect to MongoDB
+connectToMongoDB(MONGO_URI).then(() =>
   console.log("MongoDB connected!")
-);
+).catch(err => console.error("MongoDB connection error:", err));
 
-// set the view engine to ejs
-app.set('view engine', 'ejs');
-
-// tell that all ejs files are in views folder
-app.set('views', path.resolve("./views"));  
+// Set the view engine to EJS
+app.set("view engine", "ejs");
+app.set("views", path.resolve("./views"));  
 
 // Middlewares
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
-
-//Routes
+// Routes
 app.use("/url", restrictToLoggedinUserOnly, urlRoute);
 app.use("/user", userRoute);
 app.use("/", checkAuth, staticRoute);
 
 app.get("/url/:shortId", async (req, res) => {
-  const shortId = req.params.shortId;
-  const entry = await URL.findOneAndUpdate(
-    { shortId },
-    {
-      $push: {
-        visitHistory: {
-            timestamp: Date.now()
-        },
-      },
+  try {
+    const shortId = req.params.shortId;
+    const entry = await URL.findOneAndUpdate(
+      { shortId },
+      { $push: { visitHistory: { timestamp: Date.now() } } },
+      { new: true }
+    );
+    if (!entry) {
+      return res.status(404).send("Short URL not found");
     }
-  );
-  res.redirect(entry.redirectURL);
+    res.redirect(entry.redirectURL);
+  } catch (error) {
+    console.error("Error fetching URL:", error);
+    res.status(500).send("Server Error");
+  }
 });
 
-//Port to listen
-app.listen(PORT, () => console.log(`Server runnig on port: ${PORT}`));
+// Start server
+app.listen(PORT, () => console.log(`Server running on port: ${PORT}`));
