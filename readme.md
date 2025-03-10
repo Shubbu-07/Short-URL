@@ -33,7 +33,6 @@ Short-URL is a simple URL shortener application that allows users to shorten lon
    - Create a `.env` file in the root directory and add the following:
      ```env
      MONGO_URI=your_mongodb_connection_string
-     JWT_SECRET=your_secret_key
      PORT=8001
      ```
 
